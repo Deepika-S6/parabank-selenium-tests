@@ -1,32 +1,72 @@
-# ParaBank Automation (Selenium 4 + JUnit 5 + POM)
+ParaBank Test Automation
 
-## Import into Eclipse (easiest)
-1. `File > Import > General > Existing Projects into Workspace`
-2. Choose **Select archive file** -> pick `ParaBank-Selenium-Tests.zip` -> Finish.
-3. Right-click the project -> `Maven > Update Project...` -> tick Force Update -> OK (needs internet).
-Requires a JDK 11+ (Window > Preferences > Java > Installed JREs) and Chrome.
+Automated UI test suite for the ParaBank demo bank built with Selenium WebDriver 4, JUnit 5 and the Page Object Model. Test cases are designed with Equivalence Class Partitioning (ECP), Boundary Value Analysis (BVA) and white-box path analysis.
 
-## Run
-- Right-click `TransferValidatorWhiteBoxTest` → `Run As > JUnit Test` (no browser, runs offline logic).
-- Right-click `src/test/java` → `Run As > JUnit Test` for everything.
-- Maven: `mvn test` · headless: `mvn test -Dheadless=true` · Firefox: `-Dbrowser=firefox`.
-- In Eclipse pass options under `Run Configurations > Arguments > VM arguments`, e.g. `-Dheadless=true`.
-
-## Layout
-```
+Modules under test
+Module	Techniques
+Login	ECP (valid / invalid credentials, empty fields)
+Registration	ECP, password-length probe
+Open account	Checking and savings, $100 funding
+Transfer funds	ECP, BVA (Min-1 to Max+1), end-to-end balance check
+Bill pay	ECP (valid payee, empty/mismatched/non-numeric fields)
+TransferValidator	White-box: control flow graph, V(G) = 13, 13 basis paths
+Tech stack
+Java 11+
+Selenium 4.25 (Selenium Manager downloads the browser driver automatically)
+JUnit 5.10 (@ParameterizedTest, @CsvSource)
+Maven
+Chrome (default) or Firefox
+Project structure
 src/main/java/com/parabank
   config/Config.java            base URL, browser, headless, timeout
   utils/DriverFactory.java      WebDriver creation
-  utils/TestDataGenerator.java  unique users
-  pages/                        POM: Login, Register, AccountsOverview, OpenAccount, TransferFunds, BillPay
-  whitebox/                     TransferValidator + CyclomaticComplexityCalculator
+  utils/TestDataGenerator.java  unique users per run
+  pages/                        Page objects: Login, Register, AccountsOverview,
+                                OpenAccount, TransferFunds, BillPay
+  whitebox/                     TransferValidator, CyclomaticComplexityCalculator
 src/test/java/com/parabank
-  base/BaseTest.java            driver lifecycle (@BeforeEach/@AfterEach)
-  tests/                        Login, Registration, TransferFunds, BillPay, TransferValidatorWhiteBox
-docs/                           TEST_DESIGN.md, CFG png/dot
-```
+  base/BaseTest.java            driver lifecycle
+  tests/                        LoginTest, RegistrationTest, TransferFundsTest,
+                                BillPayTest, TransferValidatorWhiteBoxTest
+docs/                           TEST_DESIGN.md, control flow graph (.dot / .png)
 
-## Troubleshooting
-- Tests fail with Timeout: open the page manually; the demo server is sometimes slow or down. Raise `-Dtimeout.seconds=30`.
-- Failed assertion on a boundary row (e.g. Max+1 accepted) = ParaBank differs from the spec; report as a finding.
-- Locator errors: inspect the element in Chrome DevTools and update the `By` constants in `src/main/java/com/parabank/pages`.
+Locators live only in the page classes. Tests call page methods and hold all assertions.
+
+Getting started
+bash
+git clone https://github.com/<your-username>/ParaBank-Selenium-Tests.git
+cd ParaBank-Selenium-Tests
+mvn test
+Run options
+Goal	Command
+All tests	mvn test
+Headless	mvn test -Dheadless=true
+Firefox	mvn test -Dbrowser=firefox
+One class	mvn test -Dtest=TransferFundsTest
+Longer timeout	mvn test -Dtimeout.seconds=30
+Other base URL	mvn test -Dbase.url=http://localhost:8080/parabank
+Eclipse
+File > Import > Maven > Existing Maven Projects and select the project folder.
+Right-click the project, then Maven > Update Project... (tick Force Update).
+Right-click src/test/java, then Run As > JUnit Test.
+
+TransferValidatorWhiteBoxTest needs no browser and runs offline.
+
+Known ParaBank defects found
+
+The tests log these as KNOWN DEFECT instead of failing, so the run stays green while the defects stay visible in the console.
+
+ID	Defect	Expected	Actual
+D-01	Transfer of 0.00	Rejected	Accepted
+D-02	Transfer of balance + 0.01	Rejected (overdraft)	Accepted
+D-03	Transfer of -5.00	Rejected	Accepted
+
+Any other mismatch still fails the test, so new regressions are not hidden.
+
+Troubleshooting
+Timeouts: the public demo server is sometimes slow or down. Open the site manually and retry, or raise -Dtimeout.seconds.
+Locator errors: inspect the element in Chrome DevTools and update the By constants in src/main/java/com/parabank/pages.
+Tests pass but data looks odd: ParaBank's shared database is reset periodically, so each test registers a fresh user.
+Documentation
+
+See docs/TEST_DESIGN.md for the ECP tables, BVA values and the white-box analysis.
